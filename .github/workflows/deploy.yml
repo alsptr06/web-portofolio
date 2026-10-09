@@ -49,3 +49,4 @@ jobs:
             sudo docker image prune -f
             
             echo "================ DEPLOYMENT SELESAI SAKSES! ================"
+
