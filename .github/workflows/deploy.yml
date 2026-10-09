@@ -1,0 +1,51 @@
+name: Continuous Integration & Continuous Deployment (CI/CD)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Azure VM via SSH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: SSH Connection and Deployment Execution
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            echo "============ [1/4] MENYIAPKAN DIREKTORI PROYEK ============"
+            cd /var/www/html
+            
+            echo "============ [2/4] MENARIK KODE TERBARU DARI GITHUB ============"
+            sudo git reset --hard HEAD
+            sudo git pull origin main
+            
+            echo "============ [3/4] MELAKUKAN BUILD IMAGE DOCKER BARU ============"
+            sudo docker build -t portfolio-web .
+            
+            echo "============ [4/4] RE-DEPLOY DOCKER CONTAINER ============"
+            if [ "$(sudo docker ps -aq -f name=portfolio-app)" ]; then
+                echo "Menghentikan dan menghapus kontainer lama..."
+                sudo docker stop portfolio-app
+                sudo docker rm portfolio-app
+            fi
+            
+            sudo docker run -d \
+              --name portfolio-app \
+              -p 3000:80 \
+              --restart unless-stopped \
+              portfolio-web
+            
+            echo "Membersihkan image Docker yang tidak terpakai..."
+            sudo docker image prune -f
+            
+            echo "================ DEPLOYMENT SELESAI SAKSES! ================"
